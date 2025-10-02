@@ -15,6 +15,13 @@ class ComicReader:
         self.root.bind("<Right>", lambda e: self.flip(1))
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+        # === 强制抢夺焦点 + 提到最前，避免首次启动键盘失灵 ===
+        self.root.focus_set()  # 基础焦点
+        self.root.focus_force()  # 强制抢焦点
+        self.root.lift()  # 提到最前
+        self.root.attributes('-topmost', True)  # 临时置顶
+        self.root.after_idle(lambda: self.root.attributes('-topmost', False))
+
     def load_zip(self):
         path = filedialog.askopenfilename(filetypes=[("Zip", "*.zip")])
         if not path:
@@ -37,6 +44,7 @@ class ComicReader:
     #     self.label.config(image=self.tkimg)
     #     self.root.title(f"{self.index+1}/{len(self.imgs)}")
 
+    # 窗口逻辑修改
     def show(self):
         if not self.imgs:
             return
