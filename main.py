@@ -13,6 +13,7 @@ class ComicReader:
         self.load_zip()
         self.root.bind("<Left>", lambda e: self.flip(-1))
         self.root.bind("<Right>", lambda e: self.flip(1))
+        self.root.bind("<MouseWheel>", self.on_mouse_wheel) # 鼠标滚轮翻页
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # === 强制抢夺焦点 + 提到最前，避免首次启动键盘失灵 ===
@@ -73,6 +74,13 @@ class ComicReader:
         progress = filedialog.askopenfilename() + ".progress"
         open(progress, "w").write(str(self.index))
         self.root.destroy()
+
+    def on_mouse_wheel(self, event):
+        # Windows 事件 delta 是 ±120，Linux/Mac 可能不同，统一用符号
+        if event.delta > 0:
+            self.flip(-1)   # 向上滚 → 上一页
+        else:
+            self.flip(1)    # 向下滚 → 下一页
 
 if __name__ == "__main__":
     root = tk.Tk()
