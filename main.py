@@ -98,8 +98,10 @@ class ComicReader:
             self.nav_canvas.yview_moveto(self.index / max(1, len(self.nav_btns)))
 
     def flip(self, d):
-        self.index = max(0, min(len(self.imgs)-1, self.index + d))
+        self.index = max(0, min(len(self.imgs) - 1, self.index + d))
         self.show()
+        # --- 自动进度保存 ---
+        self._auto_save_progress()
 
     def on_close(self):
         """正常退出时自动保存当前页码"""
@@ -173,6 +175,17 @@ class ComicReader:
         # 自动滚动到可见区域
         self.nav_canvas.update_idletasks()
         self.nav_canvas.yview_moveto(idx / max(1, len(self.nav_btns)))
+
+    def _auto_save_progress(self):
+        """延迟 500ms 写盘（连续翻页只写最后一次）"""
+        if hasattr(self, '_after_save'):
+            self.root.after_cancel(self._after_save)
+        self._after_save = self.root.after(500, self._write_progress)
+
+    def _write_progress(self):
+        """立即写盘"""
+        with open(self.progress_path, "w", encoding="utf-8") as f:
+            f.write(str(self.index))
 
 if __name__ == "__main__":
     root = tk.Tk()
