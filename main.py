@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 from tkinter import Canvas, Frame, Button, Scrollbar
+import  customtkinter as ctk
 
 # -------------------- 常量 --------------------
 NAV_WIDTH = 180
@@ -14,7 +15,7 @@ SAVE_DELAY = 200  # ms
 class ComicReader:
     def __init__(self, root):
         self.root = root
-        self.root.title("ComicReader-MVP")
+        self.root.title("ComicReader")
         self.index = 0
         self.imgs = []          # 懒加载容器
         self.img_paths = []     # 只存路径
@@ -80,9 +81,18 @@ class ComicReader:
                             Image.LANCZOS)
                 tk_img = ImageTk.PhotoImage(thumb)
             self.thumb_tkimgs.append(tk_img)
-            btn = Button(self.nav_inner, image=tk_img,
-                         command=lambda i=idx: self.jump_to(i),
-                         bd=2, relief='solid')
+            btn = ctk.CTkButton(
+                self.nav_inner,
+                image=tk_img,
+                text="",
+                width=THUMB_H + 20,
+                height=THUMB_H,
+                fg_color="transparent",  # 背景透明
+                border_width=2,  # 替代 bd
+                border_color="white",  # 边框颜色
+                hover_color="#444444",  # 悬停颜色
+                command=lambda i=idx: self.jump_to(i)
+            )
             btn.pack(fill='x', padx=4, pady=4)
             self.nav_btns.append(btn)
         self.nav_inner.update_idletasks()
@@ -126,7 +136,10 @@ class ComicReader:
         if not self.nav_btns:
             return
         for i, btn in enumerate(self.nav_btns):
-            btn.config(bg='red' if i == self.index else 'SystemButtonFace')
+            btn.configure(
+                fg_color=("red" if i == self.index else "transparent"),
+                border_color=("white" if i == self.index else "gray50")
+            )
         self.nav_canvas.yview_moveto(self.index / max(1, len(self.nav_btns)))
 
     # -------------------- 翻页 --------------------
@@ -167,7 +180,7 @@ class ComicReader:
         self.paned.pack(fill='both', expand=True)
 
         # 左侧导航
-        nav_frame = tk.Frame(self.paned, width=NAV_WIDTH)
+        nav_frame = ctk.CTkFrame(self.paned, width=NAV_WIDTH)
         self.paned.add(nav_frame)
         self.nav_canvas = Canvas(nav_frame, width=NAV_WIDTH)
         self.nav_canvas.pack(side='left', fill='y', expand=True)
@@ -183,7 +196,7 @@ class ComicReader:
                                      int(-1 * (e.delta / 120)), "units"))
 
         # 右侧阅读区
-        right_frame = tk.Frame(self.paned)
+        right_frame = ctk.CTkFrame(self.paned)
         self.paned.add(right_frame)
         self.label = tk.Label(right_frame, bg='black')
         self.label.pack(fill='both', expand=True)
@@ -197,7 +210,8 @@ class ComicReader:
 # -------------------- 启动 --------------------
 if __name__ == "__main__":
     try:
-        root = tk.Tk()
+        # root = tk.Tk()
+        root = ctk.CTk()
         root.geometry("1000x700")
         ComicReader(root)
         root.mainloop()
