@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 from tkinter import Canvas, Frame, Button, Scrollbar
 import  customtkinter as ctk
+from customtkinter import AppearanceModeTracker   # 官方追踪器
 
 # -------------------- 常量 --------------------
 NAV_WIDTH = 180
@@ -54,7 +55,8 @@ class ComicReader:
             self._load_images()
             self._build_nav()
             self._load_progress()
-            self.show()
+            self.root.update_idletasks()
+            self.root.after(10, self.show)
         except Exception as e:
             messagebox.showerror("加载失败", str(e))
             return self.load_zip()
@@ -79,7 +81,7 @@ class ComicReader:
                     .resize((int(Image.open(zf.open(img_path)).width * THUMB_H /
                                  Image.open(zf.open(img_path)).height), THUMB_H),
                             Image.LANCZOS)
-                tk_img = ImageTk.PhotoImage(thumb)
+                tk_img = ctk.CTkImage(thumb, size=(thumb.width, thumb.height))
             self.thumb_tkimgs.append(tk_img)
             btn = ctk.CTkButton(
                 self.nav_inner,
@@ -174,21 +176,88 @@ class ComicReader:
     def on_mouse_wheel(self, event):
         self.flip(-1 if event.delta > 0 else 1)
 
+    # -------------------- 文件菜单 --------------------
+    def _on_file_menu(self):
+        """弹出文件选择对话框，等同于原来的 load_zip"""
+        self.load_zip()  # 直接复用你原来的逻辑
+
+    # -------------------- 主题菜单 --------------------
+    def _on_theme_menu(self):
+        """一键明暗切换，并同步左侧导航颜色"""
+        # 1. 切换 CTk 主题
+        new_mode = "Dark" if ctk.get_appearance_mode() == "Light" else "Light"
+        ctk.set_appearance_mode(new_mode)
+
+        # 2. 同步 tk 原生组件颜色
+        self._sync_nav_colors()
+
+    def _sync_nav_colors(self):
+        """让 tk.Canvas/tk.Frame 与 CTk 主题保持一致"""
+        is_dark = ctk.get_appearance_mode() == "Dark"
+        bg = "gray16" if is_dark else "gray95"  # 深/浅背景色
+        fg = "gray60" if is_dark else "gray30"  # 按钮边框色
+
+        # ① Canvas 背景
+        self.nav_canvas.configure(bg=bg, highlightthickness=0)
+
+        # ② 内部 Frame 背景
+        self.nav_inner.configure(bg=bg)
+
+        # ③ 所有缩略图按钮边框
+        for btn in self.nav_btns:
+            btn.configure(border_color=fg)
+
+        # 2. 菜单栏（CTk 组件）—— 安全取色
+        bg_bar = "#2b2b2b" if is_dark else "#dbdbdb"
+        self.menubar.configure(fg_color=bg_bar)
+
+
+
+
     # -------------------- UI 搭建 --------------------
     def _build_ui(self):
+        # -------------------- 顶部菜单栏 --------------------
+        self.menubar = ctk.CTkFrame(self.root, height=40, fg_color="gray20")
+        self.menubar.pack(fill="x", padx=5, pady=5)
+
+        # “文件”按钮
+        self.file_btn = ctk.CTkButton(
+            self.menubar, text="文件", width=60,
+            command=self._on_file_menu
+        )
+        self.file_btn.pack(side="left", padx=5)
+
+        # “主题”按钮
+        self.theme_btn = ctk.CTkButton(
+            self.menubar, text="主题", width=60,
+            command=self._on_theme_menu
+        )
+        self.theme_btn.pack(side="left", padx=5)
+
+        # 再pack主工作区
         self.paned = tk.PanedWindow(self.root, orient='horizontal', sashwidth=4)
         self.paned.pack(fill='both', expand=True)
 
         # 左侧导航
         nav_frame = ctk.CTkFrame(self.paned, width=NAV_WIDTH)
         self.paned.add(nav_frame)
-        self.nav_canvas = Canvas(nav_frame, width=NAV_WIDTH)
+        # self.nav_canvas = Canvas(nav_frame, width=NAV_WIDTH)
+        self.nav_canvas = tk.Canvas(
+            nav_frame,
+            width=NAV_WIDTH,
+            bg="gray16",  # ← 新增
+            highlightthickness=0  # ← 去掉白色边框
+        )
         self.nav_canvas.pack(side='left', fill='y', expand=True)
         scroll = Scrollbar(nav_frame, orient='vertical',
                            command=self.nav_canvas.yview)
         scroll.pack(side='right', fill='y')
         self.nav_canvas.config(yscrollcommand=scroll.set)
-        self.nav_inner = Frame(self.nav_canvas)
+        # self.nav_inner = Frame(self.nav_canvas)
+        self.nav_inner = tk.Frame(
+            self.nav_canvas,
+            bg="gray16"  # ← 新增
+        )
         self.nav_win = self.nav_canvas.create_window(
             (0, 0), window=self.nav_inner, anchor='nw', width=NAV_WIDTH)
         self.nav_canvas.bind_all("<MouseWheel>",
@@ -201,10 +270,15 @@ class ComicReader:
         self.label = tk.Label(right_frame, bg='black')
         self.label.pack(fill='both', expand=True)
 
+
+
         # 绑定
         self.root.bind("<Left>", lambda e: self.flip(-1))
         self.root.bind("<Right>", lambda e: self.flip(1))
         self.root.bind("<MouseWheel>", self.on_mouse_wheel)
+
+        # 在 _build_ui() 最后
+        self._sync_nav_colors()
 
 
 # -------------------- 启动 --------------------
