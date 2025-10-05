@@ -418,7 +418,7 @@ class ComicReader:
         # 双击切换全屏
         self.root.bind("<Double-Button-1>", self._toggle_fullscreen)
         # esc退出
-        self.root.bind("<Escape>", lambda e: self.root.attributes("-fullscreen", False))
+        self.root.bind("<Escape>", lambda e: self.on_close())
         # -------------------- 底部状态栏 --------------------
         self.status = ctk.CTkFrame(self.root, height=28, fg_color="transparent")
         self.status.pack(side="bottom", fill="x", padx=5, pady=2)
