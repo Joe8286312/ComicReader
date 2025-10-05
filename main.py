@@ -60,6 +60,7 @@ class ComicReader:
             self._build_nav()
             self._load_progress()
             self.root.update_idletasks()
+            self._update_status(path)
             self.root.after(10, self.show)
         except Exception as e:
             messagebox.showerror("加载失败", str(e))
@@ -136,6 +137,21 @@ class ComicReader:
         self.label.config(image=self.current_tkimg)
         self.root.title(f"{self.index + 1}/{len(self.img_paths)}  {w0}×{h0}")
         self._update_nav_ui()
+
+    def _update_status(self, zip_path):
+        """显示原始大小、zip 大小、压缩率"""
+        raw_bytes = 0
+        with zipfile.ZipFile(zip_path) as zf:
+            for info in zf.infolist():
+                raw_bytes += info.file_size  # 未压缩大小
+        zip_bytes = os.path.getsize(zip_path)  # 压缩后大小
+        ratio = (1 - zip_bytes / raw_bytes) * 100 if raw_bytes else 0
+
+        text = (f"文件：{len(self.img_paths)} 张  |  "
+                f"原始：{raw_bytes / 1024 / 1024:.1f} MB  |  "
+                f"压缩后：{zip_bytes / 1024 / 1024:.1f} MB  |  "
+                f"压缩率：{ratio:.1f}%")
+        self.status_lbl.configure(text=text)
 
     # -------------------- 导航高亮+自动滚动 --------------------
     def _update_nav_ui(self):
@@ -281,15 +297,22 @@ class ComicReader:
         self.label = tk.Label(right_frame, bg='black')
         self.label.pack(fill='both', expand=True)
 
-
-
         # 绑定
         self.root.bind("<Left>", lambda e: self.flip(-1))
         self.root.bind("<Right>", lambda e: self.flip(1))
         self.root.bind("<MouseWheel>", self.on_mouse_wheel)
 
+        # -------------------- 底部状态栏 --------------------
+        self.status = ctk.CTkFrame(self.root, height=28, fg_color="transparent")
+        self.status.pack(side="bottom", fill="x", padx=5, pady=2)
+
+        self.status_lbl = ctk.CTkLabel(
+            self.status, text="", font=("Segoe UI", 12))
+        self.status_lbl.pack(side="left", padx=8)
+
         # 在 _build_ui() 最后
         self._sync_nav_colors()
+
 
     def _set_window_icon(self):
         """跨平台设置窗口图标"""
@@ -301,7 +324,7 @@ class ComicReader:
             icon_path = os.path.join(os.path.dirname(__file__), "app.png")
             if os.path.exists(icon_path):
                 self.root.iconphoto(True, tk.PhotoImage(file=icon_path))
-        print(os.path.abspath(icon_path))
+        # print(os.path.abspath(icon_path)) # 调试用
 
 # -------------------- 启动 --------------------
 if __name__ == "__main__":
