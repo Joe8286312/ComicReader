@@ -25,6 +25,8 @@ class ComicReader:
         self.current_tkimg = None
         self.zip_path = ""
         self.progress_path = ""
+        self.double_page_on = False
+        self.double_page_right_to_left = False
         # 设置窗口图标
         self._set_window_icon()
         self._build_ui()
@@ -116,6 +118,38 @@ class ComicReader:
         except Exception:
             self.index = 0
 
+    # ---------- 切换双页开关 ----------
+    def toggle_double_page(self):
+        self.double_page_on = not self.double_page_on
+        self.double_btn.configure(text="单页" if self.double_page_on else "双页")
+        self.show()          # 重新渲染
+
+    # ---------- 切换阅读方向 ----------
+    def toggle_direction(self):
+        self.double_page_right_to_left = not self.double_page_right_to_left
+        self.dir_btn.configure(text="←" if self.double_page_right_to_left else "→")
+        self.show()
+
+    # ---------- 计算双页模式下要显示的两张图 ----------
+    def _double_indices(self):
+        """
+        返回 (左图索引, 右图索引)，如果某一边没有则返回 None
+        注意：self.index 始终代表“当前页”
+        """
+        if not self.double_page_on:
+            return (self.index, None)
+
+        if self.double_page_right_to_left:
+            # 右开（右→左）：当前页是右页，左边是上一页
+            left  = max(0, self.index - 1) if self.index > 0 else None
+            right = self.index
+        else:
+            # 左开（左→右）：当前页是左页，右边是下一页
+            left  = self.index
+            right = min(len(self.img_paths) - 1, self.index + 1) \
+                    if self.index < len(self.img_paths) - 1 else None
+        return (left, right)
+
     # -------------------- 懒加载单张 --------------------
     def _get_image(self, idx):
         if self.imgs[idx] is None:
@@ -123,19 +157,74 @@ class ComicReader:
                 self.imgs[idx] = Image.open(zf.open(self.img_paths[idx]))
         return self.imgs[idx]
 
-    # -------------------- 显示当前页 --------------------
+    # -------------------- 显示当前页（支持双页） --------------------
     def show(self):
         if not self.img_paths:
             return
-        src = self._get_image(self.index)
-        w0, h0 = src.size
+
+        left_idx, right_idx = self._double_indices()
+
+        # 读取两张原始图（懒加载）
+        left_img  = None
+        right_img = None
+        if left_idx is not None:
+            left_img  = self._get_image(left_idx)
+        if right_idx is not None:
+            right_img = self._get_image(right_idx)
+
+        # 计算可用区域
         scr_w = max(1, self.root.winfo_width() - NAV_WIDTH)
         scr_h = max(1, self.root.winfo_height())
-        scale = min(scr_w / w0, scr_h / h0, 1.0)
-        dst = src.resize((int(w0 * scale), int(h0 * scale)), Image.LANCZOS)
-        self.current_tkimg = ImageTk.PhotoImage(dst)
+
+        # 单页/双页统一缩放策略：让两张拼起来后的总宽度不超过 scr_w，单张高度不超过 scr_h
+        if self.double_page_on and (left_img or right_img):
+            # 双页模式
+            lw, lh = left_img.size  if left_img  else (0, 0)
+            rw, rh = right_img.size if right_img else (0, 0)
+            total_w = lw + rw
+            max_h   = max(lh, rh)
+            scale   = min(scr_w / max(total_w, 1), scr_h / max(max_h, 1), 1.0)
+
+            # 生成缩放后的 tk 图
+            tk_left  = None
+            tk_right = None
+            if left_img:
+                dst = left_img.resize((int(lw*scale), int(lh*scale)), Image.LANCZOS)
+                tk_left  = ImageTk.PhotoImage(dst)
+            if right_img:
+                dst = right_img.resize((int(rw*scale), int(rh*scale)), Image.LANCZOS)
+                tk_right = ImageTk.PhotoImage(dst)
+
+            # 拼合：新建一张底图
+            canvas_w = (tk_left.width()  if tk_left  else 0) + \
+                       (tk_right.width() if tk_right else 0)
+            canvas_h = max(tk_left.height() if tk_left else 0,
+                           tk_right.height() if tk_right else 0)
+            canvas = Image.new("RGB", (canvas_w, canvas_h), (0,0,0))
+            offset = 0
+            if tk_left:
+                canvas.paste(ImageTk.getimage(tk_left), (offset, 0))
+                offset += tk_left.width()
+            if tk_right:
+                canvas.paste(ImageTk.getimage(tk_right), (offset, 0))
+            self.current_tkimg = ImageTk.PhotoImage(canvas)
+
+            # 标题栏文字
+            pages = []
+            if left_idx  is not None: pages.append(str(left_idx+1))
+            if right_idx is not None: pages.append(str(right_idx+1))
+            self.root.title(f'{"+".join(pages)}/{len(self.img_paths)}  双页')
+        else:
+            # 单页模式（与原逻辑完全一致）
+            src = self._get_image(self.index)
+            w0, h0 = src.size
+            scale = min(scr_w / w0, scr_h / h0, 1.0)
+            dst = src.resize((int(w0*scale), int(h0*scale)), Image.LANCZOS)
+            self.current_tkimg = ImageTk.PhotoImage(dst)
+            self.root.title(f"{self.index + 1}/{len(self.img_paths)}  {w0}×{h0}")
+
+        # 最终显示
         self.label.config(image=self.current_tkimg)
-        self.root.title(f"{self.index + 1}/{len(self.img_paths)}  {w0}×{h0}")
         self._update_nav_ui()
 
     def _update_status(self, zip_path):
@@ -272,6 +361,19 @@ class ComicReader:
             command=self._on_theme_menu
         )
         self.theme_btn.pack(side="left", padx=5)
+
+        # ===== 新增双页控制 =====
+        self.double_page_on = False  # 是否处于双页模式
+        self.double_page_right_to_left = False  # False=左→右，True=右→左
+
+        self.double_btn = ctk.CTkButton(self.menubar, text="双页", width=60,
+                                        command=self.toggle_double_page)
+        self.double_btn.pack(side="left", padx=5)
+
+        # 方向按钮，默认右箭头
+        self.dir_btn = ctk.CTkButton(self.menubar, text="→", width=40,
+                                     command=self.toggle_direction)
+        self.dir_btn.pack(side="left", padx=5)
 
         # 再pack主工作区
         self.paned = tk.PanedWindow(self.root, orient='horizontal', sashwidth=4)
