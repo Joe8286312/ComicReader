@@ -24,15 +24,29 @@ class ComicReader:
         self.root.attributes('-topmost', True)
         self.root.after_idle(lambda: self.root.attributes('-topmost', False))
 
+        self.root.after_idle(lambda: self.root.attributes('-topmost', False))
 
+        # ---- 绑定退出 ----
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def load_zip(self):
         path = filedialog.askopenfilename(filetypes=[("Zip", "*.zip")])
         if not path:
             exit()
+        self.zip_path = path                    # ← 新增
+        self.progress_path = path + ".progress" # ← 新增
+
         zf = zipfile.ZipFile(path)
-        names = sorted(n for n in zf.namelist() if n.lower().endswith(('.jpg', '.png', '.jpeg')))
+        names = sorted(n for n in zf.namelist()
+                       if n.lower().endswith(('.jpg', '.png', '.jpeg')))
         self.imgs = [Image.open(zf.open(n)) for n in names]
+
+        # —— 读取进度 ——
+        if os.path.exists(self.progress_path):
+            self.index = int(open(self.progress_path).read())
+        else:
+            self.index = 0
+
         self.show()
         # 读进度
         progress = path + ".progress"
@@ -56,7 +70,7 @@ class ComicReader:
             btn.pack(fill='x', padx=4, pady=4)
             self.nav_btns.append(btn)
 
-        self.jump_to(0)  # 默认高亮第 0 页
+        # self.jump_to(0)  # 默认高亮第 0 页
         # ➜ 关键：刷新滚动区域
         self.nav_inner.update_idletasks()
         self.nav_canvas.config(scrollregion=self.nav_canvas.bbox("all"))
@@ -88,8 +102,9 @@ class ComicReader:
         self.show()
 
     def on_close(self):
-        progress = filedialog.askopenfilename() + ".progress"
-        open(progress, "w").write(str(self.index))
+        """正常退出时自动保存当前页码"""
+        with open(self.progress_path, "w", encoding="utf-8") as f:
+            f.write(str(self.index))
         self.root.destroy()
 
     def on_mouse_wheel(self, event):
@@ -164,5 +179,3 @@ if __name__ == "__main__":
     root.geometry("800x600")
     ComicReader(root)
     root.mainloop()
-
-
