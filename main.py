@@ -196,6 +196,18 @@ class ComicReader:
     def on_mouse_wheel(self, event):
         self.flip(-1 if event.delta > 0 else 1)
 
+    def _toggle_fullscreen(self, event=None):
+        if self.root.attributes("-fullscreen"):
+            # 退出全屏
+            self.root.state("normal")
+            self.root.attributes("-fullscreen", False)
+        else:
+            # 进入全屏
+            self.root.state("zoomed")
+            self.root.attributes("-fullscreen", True)
+        self.root.update_idletasks()
+        self.root.after(100, self.show)
+
     # -------------------- 文件菜单 --------------------
     def _on_file_menu(self):
         """弹出文件选择对话框，等同于原来的 load_zip"""
@@ -301,7 +313,10 @@ class ComicReader:
         self.root.bind("<Left>", lambda e: self.flip(-1))
         self.root.bind("<Right>", lambda e: self.flip(1))
         self.root.bind("<MouseWheel>", self.on_mouse_wheel)
-
+        # 双击切换全屏
+        self.root.bind("<Double-Button-1>", self._toggle_fullscreen)
+        # esc退出
+        self.root.bind("<Escape>", lambda e: self.root.attributes("-fullscreen", False))
         # -------------------- 底部状态栏 --------------------
         self.status = ctk.CTkFrame(self.root, height=28, fg_color="transparent")
         self.status.pack(side="bottom", fill="x", padx=5, pady=2)
