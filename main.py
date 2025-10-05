@@ -25,7 +25,8 @@ class ComicReader:
         self.current_tkimg = None
         self.zip_path = ""
         self.progress_path = ""
-
+        # 设置窗口图标
+        self._set_window_icon()
         self._build_ui()
         self.load_zip()
         self.root.focus_set()
@@ -34,6 +35,9 @@ class ComicReader:
         self.root.attributes('-topmost', True)
         self.root.after_idle(lambda: self.root.attributes('-topmost', False))
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        # 居中显示
+        self._center_window(1000, 700)
 
     # -------------------- 加载入口 --------------------
     def load_zip(self):
@@ -211,8 +215,15 @@ class ComicReader:
         bg_bar = "#2b2b2b" if is_dark else "#dbdbdb"
         self.menubar.configure(fg_color=bg_bar)
 
-
-
+    # 菜单居中
+    def _center_window(self, width, height):
+        """让窗口在屏幕中央"""
+        self.root.update_idletasks()  # 先拿到真实尺寸
+        scr_w = self.root.winfo_screenwidth()
+        scr_h = self.root.winfo_screenheight()
+        x = (scr_w - width) // 2
+        y = (scr_h - height) // 2
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     # -------------------- UI 搭建 --------------------
     def _build_ui(self):
@@ -280,6 +291,17 @@ class ComicReader:
         # 在 _build_ui() 最后
         self._sync_nav_colors()
 
+    def _set_window_icon(self):
+        """跨平台设置窗口图标"""
+        icon_path = os.path.join(os.path.dirname(__file__), "app.ico")
+        if os.path.exists(icon_path):
+            self.root.iconbitmap(icon_path)  # Windows
+        else:
+            # Linux/Mac 可用 png（部分系统需 tk 8.6+）
+            icon_path = os.path.join(os.path.dirname(__file__), "app.png")
+            if os.path.exists(icon_path):
+                self.root.iconphoto(True, tk.PhotoImage(file=icon_path))
+        print(os.path.abspath(icon_path))
 
 # -------------------- 启动 --------------------
 if __name__ == "__main__":
