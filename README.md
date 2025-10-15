@@ -10,7 +10,7 @@
 1. 克隆或下载源码  
 
    ```bash
-   git clone https://github.com/YOUR_NAME/ComicReader.git
+   git clone https://github.com/Joe8286312/ComicReader.git
    cd ComicReader
    ```
 
